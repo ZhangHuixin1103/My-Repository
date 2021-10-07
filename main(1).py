@@ -267,11 +267,6 @@ def flip(s, idx):
 
 def heisenberg_loc(config, psi_func, psi_loc, idx_list, h=-0.5, J=-1):
     # print(psi_loc)
-    val = psi_loc.item()
-    if 0 <= val < epsilon:
-        psi_loc += epsilon
-    elif 0 > val > -epsilon:
-        psi_loc -= epsilon
 
     # sigma_z * sigma_z
     e_part1 = 0
