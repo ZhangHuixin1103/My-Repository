@@ -78,13 +78,11 @@ def vmc_sample(kernel, initial_config, num_bath, num_sample):
 
     config = initial_config
     prob = kernel.prob(config)
-    if prob < epsilon:
-        prob = epsilon
 
     n_accepted = 0
     sample_list = []
     for i in range(num_bath + num_sample):
-        #         print('sample ', i)
+        # print('sample ', i)
         # generate new config and calculate probability ratio
         config_proposed = kernel.propose_config(config)
         prob_proposed = kernel.prob(config_proposed)
