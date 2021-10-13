@@ -191,12 +191,13 @@ class CNN2D(nn.Module):
         self.num_hidden = num_hidden
         self.kernel_size = kernel_size
         self.inf = 1e20
+        self.log_inf = 40
 
         self.net = nn.Sequential(
             nn.Conv2d(1, filter_num, kernel_size=kernel_size),
             nn.MaxPool2d(2, 2),
             nn.ConvTranspose2d(filter_num, 1, kernel_size=2, stride=2),
-        #    nn.Sigmoid(),
+        #    nn.Tanh(),
         )
 
     def handmade_padding(self, spin_lattice):
@@ -216,12 +217,19 @@ class CNN2D(nn.Module):
         return spin_lattice_padded
 
     def psi(self, data, v):
-        batch, x, edge_index = data.batch, data.x, data.edge_index
-        assert v.size()[0] == self.length ** 2
+        # batch, x, edge_index = data.batch, data.x, data.edge_index
+        # assert v.size()[0] == self.length ** 2
+        # v = v.view(self.length, self.length).float()
+        # v = self.handmade_padding(v)
+        # v = self.net(v.view(1, 1, self.length + self.kernel_size - 1, self.length + self.kernel_size - 1))
+        sign_v, v = self.log_psi(data, v)
+        v = torch.minimum(v, torch.full_like(v, fill_value=self.log_inf))
+        return v.exp() * sign_v
+
+    def log_psi(self, data, v):
         v = v.view(self.length, self.length).float()
         v = self.handmade_padding(v)
         v = self.net(v.view(1, 1, self.length + self.kernel_size - 1, self.length + self.kernel_size - 1))
-        v = v.prod()
-        v = torch.minimum(v, torch.full_like(v, fill_value=self.inf))
-        v = torch.maximum(v, torch.full_like(v, fill_value=-self.inf))
-        return v
+        sign_v = v.sign()
+        v = v * sign_v
+        return sign_v.prod(), v.log().sum()

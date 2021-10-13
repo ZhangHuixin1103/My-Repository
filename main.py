@@ -77,20 +77,20 @@ def vmc_sample(kernel, initial_config, num_bath, num_sample):
     print_step = np.Inf  # steps between two print of accept rate, Inf to disable showing this information.
 
     config = initial_config
-    prob = kernel.prob(config)
+    log_prob = kernel.log_prob(config)
 
     n_accepted = 0
     sample_list = []
     for i in range(num_bath + num_sample):
-        # print('sample ', i)
+        #         print('sample ', i)
         # generate new config and calculate probability ratio
         config_proposed = kernel.propose_config(config)
-        prob_proposed = kernel.prob(config_proposed)
+        log_prob_proposed = kernel.log_prob(config_proposed)
 
         # accept/reject a move by metropolis algorithm
-        if np.random.random() < prob_proposed / prob:
+        if np.random.random() < np.exp(log_prob_proposed - log_prob):
             config = config_proposed
-            prob = prob_proposed
+            log_prob = log_prob_proposed
             n_accepted += 1
 
         # print statistics
@@ -126,6 +126,7 @@ def vmc_measure(local_measure, sample_list, measure_step, num_bin=50):
             energy_loc, grad_loc = local_measure(config)
             energy_loc_list.append(energy_loc)
             grad_loc_list.append(grad_loc)
+            # print(grad_loc, energy_loc)
 
     # binning statistics for energy
     energy_loc_list = np.array(energy_loc_list)
@@ -138,6 +139,7 @@ def vmc_measure(local_measure, sample_list, measure_step, num_bin=50):
     grad_mean = []
     energy_grad = []
     for grad_loc in zip(*grad_loc_list):
+        #print(grad_loc)
         grad_loc = torch.stack(grad_loc, 0)
         grad_mean.append(grad_loc.mean(0))
         energy_grad.append(
@@ -195,6 +197,10 @@ class VMCKernel(object):
         '''
         return abs(self.ansatz.psi(self.data, torch.from_numpy(config)).item()) ** 2
 
+    def log_prob(self, config):
+        sign, log_prob = self.ansatz.log_psi(self.data, torch.from_numpy(config))
+        return log_prob.item() * 2
+
     def local_measure(self, config):
         '''
         get local quantities energy_loc, grad_loc.
@@ -211,7 +217,7 @@ class VMCKernel(object):
         self.ansatz.zero_grad()
         psi_loc.backward()
         grad_loc = [p.grad.data / psi_loc.item() for p in self.ansatz.parameters()]
-        #         grad_loc = [p.grad.data for p in self.ansatz.parameters()]
+        #grad_loc = [p.grad.data for p in self.ansatz.parameters()]
 
         # E_{loc}
         edge_index = sort_edge_index(self.data.edge_index)[0]
@@ -221,6 +227,7 @@ class VMCKernel(object):
                 idx_list.append(self.data.edge_index[:, i].numpy().tolist())
         eloc = self.energy_loc(config, lambda x: self.ansatz.psi(self.data, torch.from_numpy(x)).data, psi_loc.data,
                                idx_list)
+        # print(eloc.item(), psi_loc.item(), grad_loc)
         return eloc.item(), grad_loc
 
     @staticmethod
@@ -280,6 +287,8 @@ def heisenberg_loc(config, psi_func, psi_loc, idx_list, h=-0.5, J=-1):
         config_i = flip(config, idx[0])
         config_i = flip(config_i, idx[1])
         e_part2 += (psi_func(config_i) / psi_loc)
+        #if abs(e_part2) > 1e15:
+        #    e_part2 = np.sign(e_part2) * 1e15
 
     # sigma_y * sigma_y
     e_part3 = 0
@@ -290,6 +299,8 @@ def heisenberg_loc(config, psi_func, psi_loc, idx_list, h=-0.5, J=-1):
             e_part3 -= (psi_func(config_i) / psi_loc)
         else:
             e_part3 += (psi_func(config_i) / psi_loc)
+        #if abs(e_part3) > 1e16:
+        #    e_part3 = np.sign(e_part3) * 1e16
 
     return e_part1 + e_part2 + e_part3
 
@@ -331,6 +342,7 @@ def train(model, num_spin):
         # as well as the precision of energy.        
         sample_list = vmc_sample(model, initial_config, num_bath=100 * num_spin, num_sample=100 * num_spin)
         energy, grad, energy_grad, precision = vmc_measure(model.local_measure, sample_list, num_spin)
+        # print(energy, grad, energy_grad, precision)
 
         g_list = [eg - energy * g for eg, g in zip(energy_grad, grad)]
 
@@ -445,7 +457,7 @@ def main():
         # ansatz = GraphTransformer(data, max(deg).item(), data.num_nodes, num_layers_gnn=4//2, num_layers_tran=4//2, emb_dim=32,
         #                    head_size=4, dropout_rate=0, attention_dropout_rate=0, JK="last", graph_pooling='sum', norm='batch')
     elif args.model == 'cnn2d':
-        ansatz = CNN2D(num_spin, num_hidden, filter_num=256, kernel_size=7).cuda()
+        ansatz = CNN2D(num_spin, num_hidden, filter_num=32, kernel_size=5).cuda()
     model = VMCKernel(data, heisenberg_loc, ansatz=ansatz)
 
     ### load pretrain model 
