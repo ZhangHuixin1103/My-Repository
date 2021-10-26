@@ -22,7 +22,6 @@ from torch_geometric.nn import GATConv, GraphConv, GCNConv, GINConv, GINEConv, S
 from torch_geometric.nn import global_mean_pool,global_max_pool,global_add_pool, LayerNorm, BatchNorm, GlobalAttention
 
 
-
 class MLP(torch.nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim, dropout, activation):
         super(MLP, self).__init__()
