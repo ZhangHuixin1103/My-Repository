@@ -29,8 +29,21 @@ def get_dist2_idx(idx_list):
     idx_list_dist2 = []
     for idx in idx_list:
         for idx2 in idx_list:
-            if idx[1] == idx2[0] and [idx[0], idx2[1]] not in idx_list and [idx[0], idx2[1]] not in idx_list_dist2:
-                idx_list_dist2.append([idx[0], idx2[1]])
+            if idx[0] == idx2[0]:
+                a, b = idx[1], idx2[1]
+            elif idx[1] == idx2[0]:
+                a, b = idx[0], idx2[1]
+            elif idx[0] == idx2[1]:
+                a, b = idx[1], idx2[0]
+            elif idx[1] == idx2[1]:
+                a, b = idx[0], idx2[0]
+            else:
+                a, b = None, None
+            if a is not None and a != b:
+                if b < a:
+                    a, b = b, a
+                if [a, b] not in idx_list and [a, b] not in idx_list_dist2:
+                    idx_list_dist2.append([a, b])
     return idx_list_dist2
 
 def heisenberg_loc(config, psi_func, psi_loc, idx_list, h=-0.5, J=-1):
