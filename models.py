@@ -748,7 +748,7 @@ class CNN2D_SE_Hex_108(torch.nn.Module):
             config[:, self.shape[1] * 9 + 4 + i] = config_in[:, cnt]
             cnt += 1
         for i in range(8):
-            config[:, self.shape[1] * 10 + 5+ i] = config_in[:, cnt]
+            config[:, self.shape[1] * 10 + 5 + i] = config_in[:, cnt]
             cnt += 1
         for i in range(7):
             config[:, self.shape[1] * 11 + 6 + i] = config_in[:, cnt]
