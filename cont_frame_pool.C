@@ -273,9 +273,6 @@ unsigned long ContFramePool::get_frames(unsigned int _n_frames)
 void ContFramePool::mark_inaccessible(unsigned long _base_frame_no,
                                       unsigned long _n_frames)
 {
-    // TODO: IMPLEMENTATION NEEEDED!
-    // Console::puts("ContframePool::mark_inaccessible not implemented!\n");
-    // assert(false);
     unsigned long start = _base_frame_no;
     unsigned int bitmap_index;
     unsigned char marker;
@@ -292,27 +289,21 @@ void ContFramePool::mark_inaccessible(unsigned long _base_frame_no,
 
 void ContFramePool::release_frames(unsigned long _first_frame_no)
 {
-    // TODO: IMPLEMENTATION NEEEDED!
-    // Console::puts("ContframePool::release_frames not implemented!\n");
-    // assert(false);
     ContFramePool *current = ContFramePool::frame_pool_head;
     while ((current->base_frame_no > _first_frame_no) || (_first_frame_no >= current->base_frame_no + current->nframes))
     {
         current = current->frame_pool_next;
     }
 
-    // check if frame is head of sequence
     unsigned int bitmap_index = (_first_frame_no - current->base_frame_no) / 4;
     unsigned char checker_head = 0x80 >> (((_first_frame_no - current->base_frame_no) % 4) * 2);
     unsigned char checker_reset = 0xc0 >> (((_first_frame_no - current->base_frame_no) % 4 * 2));
     unsigned int i;
     if (((current->bitmap[bitmap_index] ^ checker_head) & checker_reset) == checker_reset)
     {
-        // reset head to free frame
         current->bitmap[bitmap_index] = current->bitmap[bitmap_index] & (~checker_reset);
     }
 
-    // set the rest consective frame to free frame
     for (i = _first_frame_no; i < current->base_frame_no + current->nframes; i++)
     {
         int index = (i - current->base_frame_no) / 4;
