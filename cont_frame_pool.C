@@ -273,25 +273,17 @@ unsigned long ContFramePool::get_frames(unsigned int _n_frames)
 void ContFramePool::mark_inaccessible(unsigned long _base_frame_no,
                                       unsigned long _n_frames)
 {
-    if (_base_frame_no < base_frame_no || base_frame_no + nframes < _base_frame_no + _n_frames)
+    unsigned long start = _base_frame_no;
+    unsigned int bitmap_index;
+    unsigned char marker;
+    unsigned char marker_reset;
+    for (start; start < (_base_frame_no + _n_frames); start++)
     {
-        Console::puts("Out of range, cannot mark inaccessible!\n");
-    }
-    else
-    {
-        unsigned long begin = _base_frame_no;
-        unsigned int bitmap_idx;
-        unsigned char marker;
-        unsigned char marker_reset;
-
-        for (begin; begin < (_base_frame_no + _n_frames); begin++)
-        {
-            bitmap_idx = ((begin - base_frame_no) / 4);
-            marker_reset = 0xc0 << ((begin % 4) * 2);
-            marker = 0x80 >> ((begin % 4) * 2);
-            bitmap[bitmap_idx] = bitmap[bitmap_idx] & (~marker_reset);
-            bitmap[bitmap_idx] = bitmap[bitmap_idx] | marker;
-        }
+        bitmap_index = ((start - base_frame_no) / 4);
+        marker_reset = 0xc0 << ((start % 4) * 2);
+        marker = 0x80 >> ((start % 4) * 2);
+        bitmap[bitmap_index] = bitmap[bitmap_index] & (~marker_reset);
+        bitmap[bitmap_index] = bitmap[bitmap_index] | marker;
     }
 }
 
@@ -303,29 +295,28 @@ void ContFramePool::release_frames(unsigned long _first_frame_no)
         cur_pool = cur_pool->frame_pool_next;
     }
 
-    unsigned int bitmap_idx = (_first_frame_no - cur_pool->base_frame_no) / 4;
+    unsigned int bitmap_index = (_first_frame_no - cur_pool->base_frame_no) / 4;
     unsigned char checker_head = 0x80 >> (((_first_frame_no - cur_pool->base_frame_no) % 4) * 2);
     unsigned char checker_reset = 0xc0 >> (((_first_frame_no - cur_pool->base_frame_no) % 4 * 2));
     unsigned int i;
-
-    if (((cur_pool->bitmap[bitmap_idx] ^ checker_head) & checker_reset) == checker_reset)
+    if (((cur_pool->bitmap[bitmap_index] ^ checker_head) & checker_reset) == checker_reset)
     {
-        cur_pool->bitmap[bitmap_idx] = cur_pool->bitmap[bitmap_idx] & (~checker_reset);
+        cur_pool->bitmap[bitmap_index] = cur_pool->bitmap[bitmap_index] & (~checker_reset);
     }
 
     for (i = _first_frame_no; i < cur_pool->base_frame_no + cur_pool->nframes; i++)
     {
-        int idx = (i - cur_pool->base_frame_no) / 4;
+        int index = (i - cur_pool->base_frame_no) / 4;
         checker_reset = checker_reset >> (i - cur_pool->base_frame_no) % 4;
-        if ((cur_pool->bitmap[idx] & checker_reset) == 0)
+        if ((cur_pool->bitmap[index] & checker_reset) == 0)
         {
             break;
         }
-        if ((cur_pool->bitmap[idx] & checker_reset) == 0)
+        if ((cur_pool->bitmap[index] & checker_reset) == 0)
         {
             break;
         }
-        cur_pool->bitmap[idx] = cur_pool->bitmap[idx] & (~checker_reset);
+        cur_pool->bitmap[index] = cur_pool->bitmap[index] & (~checker_reset);
     }
 }
 
