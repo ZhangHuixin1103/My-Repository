@@ -292,123 +292,50 @@ unsigned long ContFramePool::get_frames(unsigned int _n_frames)
 void ContFramePool::mark_inaccessible(unsigned long _base_frame_no,
                                       unsigned long _n_frames)
 {
-    if (_base_frame_no < base_frame_no || base_frame_no + nframes < _base_frame_no + _n_frames)
+    unsigned long start = _base_frame_no;
+    unsigned int bitmap_index;
+    unsigned char marker;
+    unsigned char marker_reset;
+    for (start; start < (_base_frame_no + _n_frames); start++)
     {
-        Console::puts("Out of range, cannot mark inaccessible!\n");
-    }
-    else
-    {
-        nFreeFrames -= _n_frames;
-        int bit_diff = (_base_frame_no - base_frame_no) * 2;
-        int i_index = bit_diff / 8;
-        int j_index = (bit_diff % 8) / 2;
-
-        int set_frame = _n_frames;
-        unsigned char a_mask = 0x80;
-        unsigned char inv_mask = 0xC0;
-        a_mask = a_mask >> (j_index * 2);
-        inv_mask = inv_mask >> (j_index * 2);
-
-        while (set_frame > 0 && j_index < 4)
-        {
-            bitmap[i_index] = (bitmap[i_index] & ~inv_mask) | a_mask;
-            a_mask = a_mask >> 2;
-            inv_mask = inv_mask >> 2;
-            set_frame--;
-            j_index++;
-        }
-
-        for (int i = i_index + 1; i < i_index + _n_frames / 4; i++)
-        {
-            a_mask = 0xC0;
-            inv_mask = 0xC0;
-            for (int j = 0; j < 4; j++)
-            {
-                if (set_frame == 0)
-                {
-                    break;
-                }
-                bitmap[i] = (bitmap[i] & ~inv_mask) | a_mask;
-                a_mask = a_mask >> 2;
-                inv_mask = inv_mask >> 2;
-                set_frame--;
-            }
-            if (set_frame == 0)
-            {
-                break;
-            }
-        }
+        bitmap_index = ((start - base_frame_no) / 4);
+        marker_reset = 0xc0 << ((start % 4) * 2);
+        marker = 0x80 >> ((start % 4) * 2);
+        bitmap[bitmap_index] = bitmap[bitmap_index] & (~marker_reset);
+        bitmap[bitmap_index] = bitmap[bitmap_index] | marker;
     }
 }
 
 void ContFramePool::release_frames(unsigned long _first_frame_no)
 {
-    ContFramePool *cur_pool = ContFramePool::frame_pool_head;
-    while ((cur_pool->base_frame_no > _first_frame_no || cur_pool->base_frame_no + cur_pool->nframes <= _first_frame_no))
+    ContFramePool *cur_pool = ContFramePool::pool_head;
+    while ((cur_pool->base_frame_no > _first_frame_no) || (_first_frame_no >= cur_pool->base_frame_no + cur_pool->n_frames))
     {
-        if (cur_pool->frame_pool_next == NULL)
-        {
-            Console::puts("Frame not found!\n");
-            return;
-        }
-        else
-        {
-            cur_pool = cur_pool->frame_pool_next;
-        }
+        cur_pool = cur_pool->pool_next;
     }
 
-    unsigned char *bitmap_pointer = cur_pool->bitmap;
-    int bit_diff = (_first_frame_no - cur_pool->base_frame_no) * 2;
-    int i_idx = bit_diff / 8;
-    int j_idx = (bit_diff % 8) / 2;
-
-    unsigned char head_mask = 0x80;
-    unsigned char a_mask = 0xC0;
-    head_mask = head_mask >> j_idx * 2;
-    a_mask = a_mask >> j_idx * 2;
-    if (((bitmap_pointer[i_idx] ^ head_mask) & a_mask) == a_mask)
+    unsigned int bitmap_index = (_first_frame_no - cur_pool->base_frame_no) / 4;
+    unsigned char checker_head = 0x80 >> (((_first_frame_no - cur_pool->base_frame_no) % 4) * 2);
+    unsigned char checker_reset = 0xc0 >> (((_first_frame_no - cur_pool->base_frame_no) % 4 * 2));
+    unsigned int i;
+    if (((cur_pool->bitmap[bitmap_index] ^ checker_head) & checker_reset) == checker_reset)
     {
-        bitmap_pointer[i_idx] = bitmap_pointer[i_idx] & (~a_mask);
-        j_idx++;
-        a_mask = a_mask >> 2;
-        cur_pool->nFreeFrames++;
-
-        while (j_idx < 4)
-        {
-            if ((bitmap_pointer[i_idx] & a_mask) == a_mask)
-            {
-                bitmap_pointer[i_idx] = bitmap_pointer[i_idx] & (~a_mask);
-                j_idx++;
-                a_mask = a_mask >> 2;
-                cur_pool->nFreeFrames++;
-            }
-            else
-            {
-                return;
-            }
-        }
-
-        for (int i = i_idx + 1; i < (cur_pool->base_frame_no + cur_pool->nframes) / 4; i++)
-        {
-            a_mask = 0xC0;
-            for (int j = 0; j < 4; j++)
-            {
-                if ((bitmap_pointer[i] & a_mask) == a_mask)
-                {
-                    bitmap_pointer[i] = bitmap_pointer[i] & (~a_mask);
-                    a_mask = a_mask >> 2;
-                    cur_pool->nFreeFrames++;
-                }
-                else
-                {
-                    return;
-                }
-            }
-        }
+        cur_pool->bitmap[bitmap_index] = cur_pool->bitmap[bitmap_index] & (~checker_reset);
     }
-    else
+
+    for (i = _first_frame_no; i < cur_pool->base_frame_no + cur_pool->nframes; i++)
     {
-        Console::puts("Frame not head of sequence, cannot release!\n");
+        int index = (i - cur_pool->base_frame_no) / 4;
+        checker_reset = checker_reset >> (i - cur_pool->base_frame_no) % 4;
+        if ((cur_pool->bitmap[index] & checker_reset) == 0)
+        {
+            break;
+        }
+        if ((cur_pool->bitmap[index] & checker_reset) == 0)
+        {
+            break;
+        }
+        cur_pool->bitmap[index] = cur_pool->bitmap[index] & (~checker_reset);
     }
 }
 
