@@ -285,7 +285,8 @@ unsigned long ContFramePool::get_frames(unsigned int _n_frames)
     }
     else
     {
-        Console::puts("No free frame found!") return 0;
+        Console::puts("No free frame found!");
+        return 0;
     }
 }
 
@@ -308,10 +309,10 @@ void ContFramePool::mark_inaccessible(unsigned long _base_frame_no,
 
 void ContFramePool::release_frames(unsigned long _first_frame_no)
 {
-    ContFramePool *cur_pool = ContFramePool::pool_head;
-    while ((cur_pool->base_frame_no > _first_frame_no) || (_first_frame_no >= cur_pool->base_frame_no + cur_pool->n_frames))
+    ContFramePool *cur_pool = ContFramePool::frame_pool_head;
+    while ((cur_pool->base_frame_no > _first_frame_no) || (_first_frame_no >= cur_pool->base_frame_no + cur_pool->nframes))
     {
-        cur_pool = cur_pool->pool_next;
+        cur_pool = cur_pool->frame_pool_next;
     }
 
     unsigned int bitmap_index = (_first_frame_no - cur_pool->base_frame_no) / 4;
