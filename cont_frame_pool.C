@@ -352,9 +352,8 @@ void ContFramePool::mark_inaccessible(unsigned long _base_frame_no,
 void ContFramePool::release_frames(unsigned long _first_frame_no)
 {
     ContFramePool *cur_pool = ContFramePool::frame_pool_head;
-    first_frame_no = _first_frame_no
 
-        while ((cur_pool->base_frame_no > first_frame_no || cur_pool->base_frame_no + cur_pool->n_frames <= first_frame_no))
+        while ((cur_pool->base_frame_no > _first_frame_no || cur_pool->base_frame_no + cur_pool->n_frames <= _first_frame_no))
     {
         if (cur_pool->frame_pool_next == NULL)
         {
@@ -368,7 +367,7 @@ void ContFramePool::release_frames(unsigned long _first_frame_no)
     }
 
     unsigned char *pointer = cur_pool->bitmap;
-    int bit_diff = (first_frame_no - cur_pool->base_frame_no) * 2;
+    int bit_diff = (_first_frame_no - cur_pool->base_frame_no) * 2;
     int i_idx = bit_diff / 8;
     int j_idx = (bit_diff % 8) / 2;
 
