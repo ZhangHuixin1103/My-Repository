@@ -1,11 +1,11 @@
 /*
     File: vm_pool.H
 
-    Author: R. Bettati, Nikhil Gupta
+    Author: R. Bettati
             Department of Computer Science
             Texas A&M University
     Date  : 10/26/2010
-
+    Update: 21/10/13
 
     Description: Management of the Virtual Memory Pool
 
