@@ -4,8 +4,8 @@
  Author: R. Bettati
  Department of Computer Science
  Texas A&M University
- Date  : 16/12/07
-
+ Date  : 17/12/07
+ Update: 21/10/13
 
  Description: Basic Paging.
 
@@ -33,7 +33,9 @@
 /* FORWARDS */
 /*--------------------------------------------------------------------------*/
 
-/* -- (none) -- */
+/* Forward declaration of class VMPool */
+/* We need this to break a circular include sequence. */
+class VMPool;
 
 /*--------------------------------------------------------------------------*/
 /* P A G E - T A B L E  */
@@ -54,7 +56,7 @@ private:
     unsigned long *page_directory; /* where is page directory located? */
 
     VMPool *reg_vm_pool[VM_POOL_SIZE];
-    unsigned int vm_pool_no;
+    unsigned int vm_pool_num;
 
 public:
     static const unsigned int PAGE_SIZE = Machine::PAGE_SIZE;
