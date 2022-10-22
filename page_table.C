@@ -34,10 +34,10 @@ void PageTable::init_paging(ContFramePool *_kernel_mem_pool,
 
 PageTable::PageTable()
 {
-    page_directory = (unsigned long *)(kernel_mem_pool->get_frames(PAGE_DIR_FRAME_SIZE) * PAGE_SIZE);
+    page_directory = (unsigned long *)(process_mem_pool->get_frames(PAGE_DIR_FRAME_SIZE) * PAGE_SIZE);
 
     unsigned long mask_address = 0;
-    unsigned long *dir_map_page_table = (unsigned long *)(kernel_mem_pool->get_frames(PAGE_DIR_FRAME_SIZE) * PAGE_SIZE);
+    unsigned long *dir_map_page_table = (unsigned long *)(process_mem_pool->get_frames(PAGE_DIR_FRAME_SIZE) * PAGE_SIZE);
     unsigned long shared_frames = (PageTable::shared_size / PAGE_SIZE);
 
     for (int i = 0; i < shared_frames; i++)
@@ -54,6 +54,14 @@ PageTable::PageTable()
     {
         page_directory[i] = mask_address | PAGE_WRITE;
     }
+
+    page_directory[shared_frames - 1] = (unsigned long)(page_directory) | PAGE_WRITE | PAGE_PRESENT;
+
+    for (int i = 0; i < VM_POOL_SIZE; i++)
+    {
+        reg_vm_pool[i] = NULL;
+    }
+    vm_pool_num = 0;
 
     Console::puts("Constructed Page Table object\n");
 }
@@ -76,8 +84,6 @@ void PageTable::enable_paging()
 
 void PageTable::handle_fault(REGS *_r)
 {
-    unsigned long *cur_page_directory = (unsigned long *)read_cr3();
-
     unsigned long page_address = read_cr2();
     unsigned long pd_address = page_address >> PD_SHIFT;
     unsigned long pt_address = page_address >> PT_SHIFT;
@@ -87,18 +93,35 @@ void PageTable::handle_fault(REGS *_r)
 
     unsigned long mask_address = 0;
 
+    unsigned long *cur_page_directory = (unsigned long *)0xFFFFF000;
+
     if ((error_code & PAGE_PRESENT) == 0)
     {
+        int index = -1;
+        VMPool **vm_pool = current_page_table->reg_vm_pool;
+        for (int i = 0; i < current_page_table->vm_pool_num; i++)
+        {
+            if (vm_pool[i] != NULL)
+            {
+                if (vm_pool[i]->is_legitimate(page_address))
+                {
+                    index = i;
+                    break;
+                }
+            }
+        }
+        assert(!(index < 0));
+
         if ((cur_page_directory[pd_address] & PAGE_PRESENT) == 1)
         {
-            page_table = (unsigned long *)(cur_page_directory[pd_address] & PD_MASK);
+            page_table = (unsigned long *)(0xFFC00000 | (pd_address << PT_SHIFT));
             page_table[pt_address & PT_MASK] = (PageTable::process_mem_pool->get_frames(PAGE_DIR_FRAME_SIZE) * PAGE_SIZE) | PAGE_WRITE | PAGE_PRESENT;
         }
         else
         {
-            cur_page_directory[pd_address] = (unsigned long)((kernel_mem_pool->get_frames(PAGE_DIR_FRAME_SIZE) * PAGE_SIZE) | PAGE_WRITE | PAGE_PRESENT);
+            cur_page_directory[pd_address] = (unsigned long)((process_mem_pool->get_frames(PAGE_DIR_FRAME_SIZE) * PAGE_SIZE) | PAGE_WRITE | PAGE_PRESENT);
 
-            page_table = (unsigned long *)(cur_page_directory[pd_address] & PD_MASK);
+            page_table = (unsigned long *)(0xFFC00000 | (pd_address << PT_SHIFT));
 
             for (int i = 0; i < 1024; i++)
             {
@@ -110,4 +133,32 @@ void PageTable::handle_fault(REGS *_r)
     }
 
     Console::puts("handled page fault\n");
+}
+
+void PageTable::register_pool(VMPool *_vm_pool)
+{
+    if (vm_pool_num < VM_POOL_SIZE)
+    {
+        reg_vm_pool[vm_pool_num++] = _vm_pool;
+        Console::puts("registered VM pool\n");
+    }
+    else
+    {
+        Console::puts("VM POOL cannot register");
+    }
+}
+
+void PageTable::free_page(unsigned long _page_no)
+{
+    unsigned long pd_address = _page_no >> PD_SHIFT;
+    unsigned long pt_address = _page_no >> PT_SHIFT;
+
+    unsigned long *page_table = (unsigned long *)(0xFFC00000 | (pd_address << PT_SHIFT));
+
+    unsigned long frame_num = page_table[pt_address & PT_MASK] / (Machine::PAGE_SIZE);
+    process_mem_pool->release_frames(frame_num);
+
+    page_table[pt_address & PT_MASK] = 0 | PAGE_WRITE;
+
+    Console::puts("freed page\n");
 }
