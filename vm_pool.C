@@ -1,8 +1,8 @@
 /*
  File: vm_pool.C
 
- Author: Himanshu Gupta
- Date  : October 8 2018
+ Author:
+ Date  :
 
  */
 
@@ -57,7 +57,7 @@ VMPool::VMPool(unsigned long _base_address,
 
     region_num = 0;
 
-    allocate_reg = (struct allocate_reg_ *)(base_address);
+    allocate_region = (struct allocate_region_ *)(base_address);
 
     page_table->register_pool(this);
 
@@ -76,18 +76,18 @@ unsigned long VMPool::allocate(unsigned long _size)
     if (region_num == 0)
     {
         address = base_address;
-        allocate_reg[region_num].base_address = address + Machine::PAGE_SIZE;
-        allocate_reg[region_num].size = frames * (Machine::PAGE_SIZE);
+        allocate_region[region_num].base_address = address + Machine::PAGE_SIZE;
+        allocate_region[region_num].size = frames * (Machine::PAGE_SIZE);
         region_num++;
         return address + Machine::PAGE_SIZE;
     }
     else
     {
-        address = allocate_reg[region_num - 1].base_address + allocate_reg[region_num - 1].size;
+        address = allocate_region[region_num - 1].base_address + allocate_region[region_num - 1].size;
     }
 
-    allocate_reg[region_num].base_address = address;
-    allocate_reg[region_num].size = frames * (Machine::PAGE_SIZE);
+    allocate_region[region_num].base_address = address;
+    allocate_region[region_num].size = frames * (Machine::PAGE_SIZE);
 
     region_num++;
 
@@ -98,18 +98,18 @@ unsigned long VMPool::allocate(unsigned long _size)
 
 void VMPool::release(unsigned long _start_address)
 {
-    int current_reg_num = -1;
+    int current_region_num = -1;
 
     for (int i = 0; i < MAX_REGIONS; i++)
     {
-        if (allocate_reg[i].base_address == _start_address)
+        if (allocate_region[i].base_address == _start_address)
         {
-            current_reg_num = i;
+            current_region_num = i;
             break;
         }
     }
 
-    unsigned int allocate_pages = ((allocate_reg[current_reg_num].size) / (Machine::PAGE_SIZE));
+    unsigned int allocate_pages = ((allocate_region[current_region_num].size) / (Machine::PAGE_SIZE));
 
     for (int i = 0; i < allocate_pages; i++)
     {
@@ -117,9 +117,9 @@ void VMPool::release(unsigned long _start_address)
         _start_address += Machine::PAGE_SIZE;
     }
 
-    for (int i = current_reg_num; i < region_num - 1; i++)
+    for (int i = current_region_num; i < region_num - 1; i++)
     {
-        allocate_reg[i] = allocate_reg[i + 1];
+        allocate_region[i] = allocate_region[i + 1];
     }
 
     region_num--;
@@ -131,9 +131,12 @@ void VMPool::release(unsigned long _start_address)
 
 bool VMPool::is_legitimate(unsigned long _address)
 {
-    int size_l = base_address + size;
     int base_addr = base_address;
-    if ((_address < size_l) && (_address >= base_addr))
+    int size_leg = base_address + size;
+
+    if ((_address >= base_addr) && (_address < size_leg))
         return true;
     return false;
+
+    Console::puts("Checked whether address is part of an allocated region.\n");
 }
