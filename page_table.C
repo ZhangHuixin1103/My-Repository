@@ -110,7 +110,6 @@ void PageTable::handle_fault(REGS *_r)
                 }
             }
         }
-        assert(!(index < 0));
 
         if ((cur_page_directory[pd_address] & PAGE_PRESENT) == 1)
         {
