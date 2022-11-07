@@ -40,10 +40,10 @@
 /* EXTERNS */
 /*--------------------------------------------------------------------------*/
 
-extern Scheduler *SYSTEM_SCHEDULER;
 Thread *current_thread = 0;
 /* Pointer to the currently running thread. This is used by the scheduler,
    for example. */
+Scheduler *Thread::sched = NULL;
 
 /* -------------------------------------------------------------------------*/
 /* LOCAL DATA PRIVATE TO THREAD AND DISPATCHER CODE */
@@ -75,10 +75,8 @@ static void thread_shutdown()
        This is a bit complicated because the thread termination interacts with the scheduler.
      */
 
-    SYSTEM_SCHEDULER->terminate(Thread::CurrentThread());
-    delete current_thread;
-
-    SYSTEM_SCHEDULER->yield();
+    if (Thread::sched != NULL)
+        Thread::sched->terminate(current_thread);
 }
 
 static void thread_start()
@@ -189,6 +187,11 @@ Thread::Thread(Thread_Function _tf, char *_stack, unsigned int _stack_size)
     /* -- INITIALIZE THE STACK OF THE THREAD */
 
     setup_context(_tf);
+}
+
+void Thread::register_scheduler(Scheduler *_sched)
+{
+    Thread::sched = _sched;
 }
 
 int Thread::ThreadId()

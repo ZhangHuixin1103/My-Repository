@@ -39,7 +39,7 @@
 /* FORWARDS */
 /*--------------------------------------------------------------------------*/
 
-/* -- (none) -- */
+extern Thread *current_thread;
 
 /*--------------------------------------------------------------------------*/
 /* METHODS FOR CLASS   S c h e d u l e r  */
@@ -47,42 +47,104 @@
 
 Scheduler::Scheduler()
 {
-    que_size = 0;
+    head = NULL;
+    tail = NULL;
+    clean_head = NULL;
+
     Console::puts("Constructed Scheduler.\n");
 }
 
 void Scheduler::yield()
 {
-    que_size--;
-    Thread *thread_new = que_ready.dequeue();
+    Clean *clean_curr = clean_head;
+    Clean *clean_prev = NULL;
+    while (clean_curr != NULL)
+    {
+        if (clean_curr->thread != current_thread)
+        {
+            delete clean_curr->thread;
+            if (clean_prev != NULL)
+            {
+                clean_prev->next = clean_curr->next;
+                delete clean_curr;
+            }
+            else
+            {
+                delete clean_curr;
+                clean_head = NULL;
+            }
+        }
+        clean_prev = clean_curr;
+        clean_curr = clean_curr->next;
+    }
+
+    Queue *n;
+    Thread *thread_new;
+    if (tail != NULL)
+    {
+        n = tail;
+        tail->prev->next = NULL;
+        tail = tail->prev;
+    }
+    else
+    {
+        assert(false);
+    }
+    thread_new = n->thread;
+    delete n;
+
+    if (Machine::interrupts_enabled())
+    {
+        Machine::disable_interrupts();
+    }
     Thread::dispatch_to(thread_new);
+    Machine::enable_interrupts();
 }
 
 void Scheduler::resume(Thread *_thread)
 {
-    que_ready.enqueue(_thread);
-    que_size++;
+    add(_thread);
 }
 
 void Scheduler::add(Thread *_thread)
 {
-    que_ready.enqueue(_thread);
-    que_size++;
+    assert(_thread);
+
+    if (Thread::sched == NULL)
+        Thread::register_scheduler(this);
+
+    Queue *n = new Queue;
+    n->thread = _thread;
+    n->next = NULL;
+    n->prev = NULL;
+    if (head != NULL && tail != NULL)
+    {
+        n->next = head;
+        head->prev = n;
+        head = n;
+    }
+    else if (head == NULL && tail == NULL)
+    {
+        head = n;
+        tail = n;
+    }
+    else
+        assert(false);
 }
 
 void Scheduler::terminate(Thread *_thread)
 {
-    for (int i = 0; i < que_size; i++)
+    Clean *n = new Clean;
+    n->thread = _thread;
+    n->next = NULL;
+    if (clean_head != NULL)
     {
-        Thread *thread_top = que_ready.dequeue();
-
-        if (_thread->ThreadId() == thread_top->ThreadId())
-        {
-            que_size--;
-        }
-        else
-        {
-            que_ready.enqueue(thread_top);
-        }
+        n->next = clean_head;
+        clean_head = n;
     }
+    else
+    {
+        clean_head = n;
+    }
+    yield();
 }
